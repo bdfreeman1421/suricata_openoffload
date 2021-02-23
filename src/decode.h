@@ -38,6 +38,10 @@
 #include "util-napatech.h"
 #endif /* HAVE_NAPATECH */
 
+#ifdef HAVE_OPENOFFLOAD
+#include "util-openoffload.h"
+#endif /* HAVE_OPENOFFLOAD */
+
 
 typedef enum {
     CHECKSUM_VALIDATION_DISABLE,
@@ -613,6 +617,9 @@ typedef struct Packet_
 #endif
 #ifdef HAVE_NAPATECH
     NapatechPacketVars ntpv;
+#endif
+#ifdef HAVE_OPENOFFLOAD
+    OpenOffloadSessionVars oosv;
 #endif
 } Packet;
 

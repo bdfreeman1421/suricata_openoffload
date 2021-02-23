@@ -525,6 +525,7 @@ util-mpm-ac-ks.c util-mpm-ac-ks.h \
 util-mpm-ac-ks-small.c \
 util-mpm-hs.c util-mpm-hs.h \
 util-mpm.c util-mpm.h \
+util-openoffload.c util-openoffload.h \
 util-napatech.c util-napatech.h \
 util-optimize.h \
 util-pages.c util-pages.h \

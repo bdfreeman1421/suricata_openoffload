@@ -64,6 +64,7 @@ struct ebpf_timeout_config {
 #define AFP_MMAP_LOCKED (1<<6)
 #define AFP_BYPASS   (1<<7)
 #define AFP_XDPBYPASS   (1<<8)
+#define AFP_OPOFBYPASS   (1<<9)
 
 #define AFP_COPY_MODE_NONE  0
 #define AFP_COPY_MODE_TAP   1
@@ -154,6 +155,10 @@ typedef struct AFPPacketVars_
     int v6_map_fd;
     unsigned int nr_cpus;
 #endif
+#ifdef HAVE_OPENOFFLOAD
+    sessionTable_t *opof_handle;
+#endif
+
 } AFPPacketVars;
 
 #ifdef HAVE_PACKET_EBPF
@@ -166,12 +171,22 @@ typedef struct AFPPacketVars_
     (afpv)->v6_map_fd = -1;               \
 } while(0)
 #else
+#ifdef HAVEOPENOFFLOAD
+#define AFPV_CLEANUP(afpv) do {           \
+    (afpv)->opof_handle = NULL;           \
+    (afpv)->relptr = NULL;                \
+    (afpv)->copy_mode = 0;                \
+    (afpv)->peer = NULL;                  \
+    (afpv)->mpeer = NULL;                 \
+} while(0)
+#else
 #define AFPV_CLEANUP(afpv) do {           \
     (afpv)->relptr = NULL;                \
     (afpv)->copy_mode = 0;                \
     (afpv)->peer = NULL;                  \
     (afpv)->mpeer = NULL;                 \
 } while(0)
+#endif
 #endif
 
 /**

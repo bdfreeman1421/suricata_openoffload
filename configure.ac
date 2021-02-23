@@ -1995,6 +1995,20 @@
         fi
     fi
 
+    # Openoffload Bypass API
+    AC_ARG_ENABLE(openoffload,
+                AS_HELP_STRING([--enable-openoffload],[Enabled Openoffload ]),
+                [ enable_openoffload=$enableval ],
+                [ enable_openoffload=no])
+    AC_ARG_WITH(openoffload_libraries,
+                [  --with-openoffload-libraries=DIR  openoffload client library directory],
+                [with_openoffload_libraries="$withval"],[with_openoffload_libraries="/opt/openoffload/lib"])
+    AC_DEFINE([HAVE_OPENOFFLOAD],[1],(Openoffload support))
+    LDFLAGS="${LDFLAGS} -L${with_openoffload_libraries} -lopof_client -L/usr/lib/gcc/x86_64-linux-gnu/7.5.0 -L/opt/grpc/lib -L/opt/grpc/lib64 -lc -lstdc++ -pthread -L/usr/local/lib"
+    LIBS="${LIBS} -lopof_client -lgrpc -lgrpc++ -lgrpc++_alts -lgrpc++_error_details -lgrpc_plugin_support -lgrpcpp_channelz -lgrpc++_reflection -lgrpc_unsecure -lgrpc++_unsecure -lstdc++ -lcares  -lprotobuf  -lprotobuf-lite  -lprotoc  -lgpr -lgrpcpp_channelz -lupb -labsl_base -labsl_str_format_internal -labsl_int128 -labsl_strings -labsl_bad_optional_access -lssl -lcrypto -labsl_strings_internal -laddress_sorting -lz -labsl_raw_logging_internal -labsl_throw_delegate -labsl_time -labsl_time -labsl_time_zone"
+    LIBS64="${LIBS64}  -lcares  -lprotobuf  -lprotobuf-lite  -lprotoc"
+
+
     # Napatech - Using the 3GD API
     AC_ARG_ENABLE(napatech,
                 AS_HELP_STRING([--enable-napatech],[Enabled Napatech Devices]),
@@ -2801,6 +2815,7 @@ SURICATA_BUILD_CONF="Suricata Configuration:
   IPFW support:                            ${enable_ipfw}
   Netmap support:                          ${enable_netmap} ${have_netmap_version}
   DAG enabled:                             ${enable_dag}
+  OpenOffload enabled:                     ${enable_openoffload}
   Napatech enabled:                        ${enable_napatech}
   WinDivert enabled:                       ${enable_windivert}
 

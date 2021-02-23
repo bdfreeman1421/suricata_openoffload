@@ -624,6 +624,10 @@ static void PrintUsage(const char *progname)
 #ifdef HAVE_DAG
     printf("\t--dag <dagX:Y>                       : process ERF records from DAG interface X, stream Y\n");
 #endif
+#ifdef HAVE_OPENOFFLOAD
+    printf("\t--openoffload                        : use Openoffload to bypass using compatible hardware \n");
+    printf("\t--with-openoffload-libraries <dir>   : directory for openoffload lib /opt/openoffload/lib is default \n");
+#endif
 #ifdef HAVE_NAPATECH
     printf("\t--napatech                           : run Napatech Streams using the API\n");
 #endif
@@ -1230,6 +1234,7 @@ static TmEcode ParseCommandLine(int argc, char** argv, SCInstance *suri)
         {"group", required_argument, 0, 0},
         {"erf-in", required_argument, 0, 0},
         {"dag", required_argument, 0, 0},
+        {"openoffload", 0, 0, 0},
         {"napatech", 0, 0, 0},
         {"build-info", 0, &build_info, 1},
         {"data-dir", required_argument, 0, 0},
@@ -1478,6 +1483,14 @@ static TmEcode ParseCommandLine(int argc, char** argv, SCInstance *suri)
 						" to receive packets using --dag.");
                 return TM_ECODE_FAILED;
 #endif /* HAVE_DAG */
+            } else if (strcmp((long_opts[option_index]).name, "openoffload") == 0) {
+#ifdef HAVE_OPENOFFLOAD
+                suri->run_mode = RUNMODE_OPENOFFLOAD;
+#else
+                SCLogError(SC_ERR_OPENOFFLOAD_REQUIRED, "openoffload errorare required"
+                                                     " to capture packets using --openoffload.");
+                return TM_ECODE_FAILED;
+#endif /* HAVE_OPENOFFLOAD */
             } else if (strcmp((long_opts[option_index]).name, "napatech") == 0) {
 #ifdef HAVE_NAPATECH
                 suri->run_mode = RUNMODE_NAPATECH;

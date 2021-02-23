@@ -37,6 +37,7 @@ enum RunModes {
     RUNMODE_AFP_DEV,
     RUNMODE_NETMAP,
     RUNMODE_UNITTEST,
+    RUNMODE_OPENOFFLOAD,
     RUNMODE_NAPATECH,
     RUNMODE_UNIX_SOCKET,
     RUNMODE_WINDIVERT,
@@ -104,6 +105,7 @@ int RunModeNeedsBypassManager(void);
 #include "runmode-ipfw.h"
 #include "runmode-erf-file.h"
 #include "runmode-erf-dag.h"
+//#include "runmode-openoffload.h"
 #include "runmode-napatech.h"
 #include "runmode-af-packet.h"
 #include "runmode-nflog.h"

@@ -450,7 +450,15 @@ static void *ParseAFPConfig(const char *iface)
             SCLogError(SC_ERR_UNIMPLEMENTED, "Bypass set but eBPF support is not built-in");
 #endif
         }
+
     }
+#ifdef HAVE_OPENOFFLOAD
+    if (ConfGetChildValueBoolWithDefault(if_root, if_default, "opeonoffload", &conf_val) != 1) {
+        aconf->flags |= AFP_OPOFBYPASS;
+	SCLogInfo("AFP_OPOFBYPASS set");
+    }
+#endif
+
 
     /* One shot loading of the eBPF file */
     if (aconf->ebpf_filter_file) {

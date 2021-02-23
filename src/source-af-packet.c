@@ -113,6 +113,10 @@ struct bpf_program {
 #include <linux/net_tstamp.h>
 #endif
 
+#ifdef HAVE_OPENOFFLOAD
+#include "util-openoffload.h"
+#endif
+
 #endif /* HAVE_AF_PACKET */
 
 extern int max_pending_packets;
@@ -201,6 +205,7 @@ union thdr {
 
 static int AFPBypassCallback(Packet *p);
 static int AFPXDPBypassCallback(Packet *p);
+static int AFPOPOFBypassCallback(Packet *p);
 
 #define MAX_MAPS 32
 /**
@@ -227,6 +232,9 @@ typedef struct AFPThreadVars_
     int v4_map_fd;
     /* File descriptor of the IPv6 flow bypass table maps */
     int v6_map_fd;
+#endif
+#ifdef HAVE_OPENOFFLOAD
+    sessionTable_t *opof_handle;
 #endif
 
     unsigned int frame_offset;
@@ -640,6 +648,10 @@ static int AFPRead(AFPThreadVars *ptv)
         p->afp_v.nr_cpus = ptv->ebpf_t_config.cpus_count;
 #endif
     }
+    if (ptv->flags & AFP_OPOFBYPASS) {
+        p->BypassPacketsFlow = AFPOPOFBypassCallback;
+        p->afp_v.opof_handle= ptv->opof_handle;
+    }
 
     /* get timestamp of packet via ioctl */
     if (ioctl(ptv->socket, SIOCGSTAMP, &p->ts) == -1) {
@@ -923,6 +935,10 @@ static int AFPReadFromRing(AFPThreadVars *ptv)
             p->afp_v.v6_map_fd = ptv->v6_map_fd;
             p->afp_v.nr_cpus = ptv->ebpf_t_config.cpus_count;
 #endif
+        }
+        if (ptv->flags & AFP_OPOFBYPASS) {
+            p->BypassPacketsFlow = AFPOPOFBypassCallback;
+	    p->afp_v.opof_handle=ptv->opof_handle;
         }
 
         /* Suricata will treat packet so telling it is busy, this
@@ -2659,6 +2675,102 @@ static int AFPXDPBypassCallback(Packet *p)
 }
 
 
+/**
+ * Bypass function for AF_PACKET capture in OpenOffload mode
+ *
+ * This function creates two half flows in the Openofflaod gRPC session table 
+ * to trigger bypass. This function is similar to AFPBypassCallback() but
+ * uses the sessionTable_t handle 
+ *
+ * \param p the packet belonging to the flow to bypass
+ * \return 0 if unable to bypass, 1 if success
+ */
+static int AFPOPOFBypassCallback(Packet *p)
+{
+#ifdef HAVE_OPENOFFLOAD
+    SCLogDebug("Calling af_packet openoffload callback function");
+    sessionRequest_t **requests;
+    sessionRequest_t *request;
+    addSessionResponse_t addResp;
+
+
+
+    /* Only bypass TCP and UDP */
+    if (!(PKT_IS_TCP(p) || PKT_IS_UDP(p))) {
+        return 0;
+    }
+    SCLogInfo("AFPOPOFBypassCallback handle: %d", p->afp_v.opof_handle);
+    if (PKT_IS_IPV4(p)) {
+	SCLogInfo("opof callback  src ip: %lu", p->src.addr_data32[0]);
+
+
+    unsigned int bufferSize;
+    // set buffer size for forward and reverse flow
+    bufferSize=1;
+    unsigned long sessionId;
+    sessionId=p->flow_hash;
+    clock_t begin = clock();
+    int status;
+    PROTOCOL_ID_T proto;
+    IP_VERSION_T ipver;
+    ACTION_VALUE_T action;
+    proto = _TCP;
+    ipver = _IPV4;
+  action = _FORWARD;
+  struct in_addr srcip;
+  struct in_addr dstip;
+  uint   srcport;
+  uint   dstport;
+  struct in_addr nexthopip;
+  const char *nextHop = "192.168.0.1";
+
+  srcip.s_addr=p->src.addr_data32[0];
+  dstip.s_addr=p->dst.addr_data32[0];
+  srcport=GET_TCP_SRC_PORT(p);
+  dstport=GET_TCP_DST_PORT(p);
+
+  SCLogInfo("srcip: %s uint:%lu", inet_ntoa(srcip), srcip.s_addr);
+  SCLogInfo("dstip: %s uint:%lu", inet_ntoa(dstip), dstip.s_addr);
+  SCLogInfo("request ipver: %lu", ipver);
+
+  requests = (sessionRequest_t **)malloc(bufferSize * (sizeof(requests)));
+  for (unsigned long i = 0; i < bufferSize; i++){
+    request = (sessionRequest_t *)malloc(sizeof(*request));
+    request->sessId = (2+sessionId);
+    request->inlif = 3;
+    request->outlif = 4;
+    //request->srcPort = 80;
+    //request->dstPort = 45678;
+    request->srcPort = srcport;
+    request->dstPort = dstport;
+    request->proto = proto;
+    request->ipver = ipver;
+    request->nextHop = nexthopip;
+    request->actType = action;
+    request->srcIP = srcip;
+    request->dstIP = dstip;
+    requests[i] = request;
+    SCLogInfo("request session ID[%d]: %lu", i,request->sessId);
+    SCLogInfo("request ipver in loop[%lu]: %lu", i, request->ipver);
+    SCLogInfo("request srcIP in loop[%lu]: %lu", i, request->srcIP.s_addr);
+  }
+
+    SCLogInfo("requests[0].ipver %lu" , requests[0]->ipver);
+    status = opof_add_session(bufferSize,p->afp_v.opof_handle, requests, &addResp);
+    if (status == FAILURE){
+      SCLogInfo("ERROR: Adding sessions");
+      return FAILURE;
+    }
+    SCLogInfo("response : %lu", addResp.errorStatus);
+
+    return 0;
+  } /* end of PKT_IS_IPV4 */
+#endif
+    return 0;
+}
+
+
+
 bool g_flowv4_ok = true;
 bool g_flowv6_ok = true;
 
@@ -2751,6 +2863,16 @@ TmEcode ReceiveAFPThreadInit(ThreadVars *tv, const void *initdata, void **data)
         }
     }
     ptv->ebpf_t_config = afpconfig->ebpf_t_config;
+#endif
+
+#ifdef HAVE_OPENOFFLOAD
+    if (ptv->flags & (AFP_OPOFBYPASS)) {
+           const char *address = "localhost";
+           unsigned short port = 3443;
+           char cert[2048];
+           SCLogInfo("Calling opof_create_sessionTable");
+           ptv->opof_handle = opof_create_sessionTable(address, port, cert);
+    }
 #endif
 
 #ifdef PACKET_STATISTICS
