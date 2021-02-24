@@ -65,13 +65,22 @@ alert udp any any -> any any (msg:"test udp bypass "; bypass; sid:2; rev:5;)
 
 Running a demonstration
 ------------
-1. start gRPC server (python is easier to demonstrat)
-2. setup http (lighttpd) or udp server (iperf3)
-3. start suricata
-4. tail suricat log in one window
-5. send traffic in another
-6. see log messages from gRPC server (python)
-7. see suricat log message in /var/log/suricata/suricata.log
+1. start gRPC server (python version is easier use for a demonstration)
 
+2. start http (lighttpd) or udp server (iperf3) on the same machine as suricata
 
+3. start suricata - on virtual box two ubuntu VM's (suricate/traffic sink and a traffic source) can be used on an internal network
+```
+./src/suricata -c /etc/suricata/suricata.yaml -i enp0s8
+```
+4. tail suricata log in one window  (/var/log/suricat/suricata.log)
+
+5. send traffic in another window
+```
+curl http://10.0.1.4
+iperf3 -u -c 10.0.1.4
+```
+6. see log messages from gRPC server (addSessions messages from tcp and udp)
+
+7. see suricats log message for opeonoffload events 
 
