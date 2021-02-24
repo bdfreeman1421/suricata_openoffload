@@ -618,9 +618,6 @@ typedef struct Packet_
 #ifdef HAVE_NAPATECH
     NapatechPacketVars ntpv;
 #endif
-#ifdef HAVE_OPENOFFLOAD
-    OpenOffloadSessionVars oosv;
-#endif
 } Packet;
 
 /** highest mtu of the interfaces we monitor */

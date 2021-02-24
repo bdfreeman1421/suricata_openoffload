@@ -137,8 +137,6 @@ static const char *RunModeTranslateModeToName(int runmode)
             return "ERF_FILE";
         case RUNMODE_DAG:
             return "ERF_DAG";
-        case RUNMODE_OPENOFFLOAD:
-            return "OPENOFFLOAD";
         case RUNMODE_NAPATECH:
             return "NAPATECH";
         case RUNMODE_UNITTEST:

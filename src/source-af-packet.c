@@ -2704,67 +2704,79 @@ static int AFPOPOFBypassCallback(Packet *p)
 	SCLogInfo("opof callback  src ip: %lu", p->src.addr_data32[0]);
 
 
-    unsigned int bufferSize;
-    // set buffer size for forward and reverse flow
-    bufferSize=1;
-    unsigned long sessionId;
-    sessionId=p->flow_hash;
-    clock_t begin = clock();
-    int status;
-    PROTOCOL_ID_T proto;
-    IP_VERSION_T ipver;
-    ACTION_VALUE_T action;
-    proto = _TCP;
-    ipver = _IPV4;
-  action = _FORWARD;
-  struct in_addr srcip;
-  struct in_addr dstip;
-  uint   srcport;
-  uint   dstport;
-  struct in_addr nexthopip;
-  const char *nextHop = "192.168.0.1";
+	unsigned int bufferSize;
+	/*  set buffer size to 1 
+	*  TODO: packet up to 64 sessions into an addSession message
+	*  SmartNIC will setup forward and reverse flows based on single session entry in request
+	*/
+	bufferSize=1;
+	unsigned long sessionId;
+	sessionId=p->flow_hash;
+	clock_t begin = clock();
+	int status;
+	PROTOCOL_ID_T proto;
+	IP_VERSION_T ipver;
+	ACTION_VALUE_T action;
+	proto = _TCP;
+	ipver = _IPV4;
+	action = _FORWARD;
+	struct in_addr srcip;
+	struct in_addr dstip;
+	uint   srcport;
+	uint   dstport;
+	struct in_addr nexthopip;
+	/* TODO: should be null be setting for demonstration */
+	const char *nextHop = "192.168.0.1";
+	srcip.s_addr=p->src.addr_data32[0];
+	dstip.s_addr=p->dst.addr_data32[0];
+	if (PKT_IS_TCP(p) ){
+	     srcport=GET_TCP_SRC_PORT(p);
+             dstport=GET_TCP_DST_PORT(p);
+	     proto= _TCP;
+	}
+	else{
+	    srcport=UDP_GET_SRC_PORT(p);
+	    dstport=UDP_GET_DST_PORT(p);
+	    proto= _UDP;
+	}
 
-  srcip.s_addr=p->src.addr_data32[0];
-  dstip.s_addr=p->dst.addr_data32[0];
-  srcport=GET_TCP_SRC_PORT(p);
-  dstport=GET_TCP_DST_PORT(p);
+	SCLogInfo("srcip: %s uint:%lu", inet_ntoa(srcip), srcip.s_addr);
+	SCLogInfo("dstip: %s uint:%lu", inet_ntoa(dstip), dstip.s_addr);
+	SCLogInfo("request ipver: %lu", ipver);
+	SCLogInfo("request ipver: %lu", proto);
 
-  SCLogInfo("srcip: %s uint:%lu", inet_ntoa(srcip), srcip.s_addr);
-  SCLogInfo("dstip: %s uint:%lu", inet_ntoa(dstip), dstip.s_addr);
-  SCLogInfo("request ipver: %lu", ipver);
+	requests = (sessionRequest_t **)malloc(bufferSize * (sizeof(requests)));
+	for (unsigned long i = 0; i < bufferSize; i++){
+		    request = (sessionRequest_t *)malloc(sizeof(*request));
+		    request->sessId = (2+sessionId);
+		    request->inlif = 3;
+		    request->outlif = 4;
+		    //request->srcPort = 80;
+		    //request->dstPort = 45678;
+		    request->srcPort = srcport;
+		    request->dstPort = dstport;
+		    request->proto = proto;
+		    request->ipver = ipver;
+		    request->nextHop = nexthopip;
+		    request->actType = action;
+		    request->srcIP = srcip;
+		    request->dstIP = dstip;
+		    requests[i] = request;
+		    SCLogInfo("request session ID[%d]: %lu", i,request->sessId);
+		    SCLogInfo("request ipver in loop[%lu]: %lu", i, request->ipver);
+		    SCLogInfo("request srcIP in loop[%lu]: %lu", i, request->srcIP.s_addr);
+         }
 
-  requests = (sessionRequest_t **)malloc(bufferSize * (sizeof(requests)));
-  for (unsigned long i = 0; i < bufferSize; i++){
-    request = (sessionRequest_t *)malloc(sizeof(*request));
-    request->sessId = (2+sessionId);
-    request->inlif = 3;
-    request->outlif = 4;
-    //request->srcPort = 80;
-    //request->dstPort = 45678;
-    request->srcPort = srcport;
-    request->dstPort = dstport;
-    request->proto = proto;
-    request->ipver = ipver;
-    request->nextHop = nexthopip;
-    request->actType = action;
-    request->srcIP = srcip;
-    request->dstIP = dstip;
-    requests[i] = request;
-    SCLogInfo("request session ID[%d]: %lu", i,request->sessId);
-    SCLogInfo("request ipver in loop[%lu]: %lu", i, request->ipver);
-    SCLogInfo("request srcIP in loop[%lu]: %lu", i, request->srcIP.s_addr);
-  }
+         SCLogInfo("requests[0].ipver %lu" , requests[0]->ipver);
+         status = opof_add_session(bufferSize,p->afp_v.opof_handle, requests, &addResp);
+         if (status == FAILURE){
+             SCLogInfo("ERROR: Adding sessions");
+             return FAILURE;
+         }
+         SCLogInfo("response : %lu", addResp.errorStatus);
 
-    SCLogInfo("requests[0].ipver %lu" , requests[0]->ipver);
-    status = opof_add_session(bufferSize,p->afp_v.opof_handle, requests, &addResp);
-    if (status == FAILURE){
-      SCLogInfo("ERROR: Adding sessions");
-      return FAILURE;
-    }
-    SCLogInfo("response : %lu", addResp.errorStatus);
-
-    return 0;
-  } /* end of PKT_IS_IPV4 */
+         return 0;
+    } /* end of PKT_IS_IPV4 */
 #endif
     return 0;
 }
