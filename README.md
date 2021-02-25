@@ -15,11 +15,13 @@ Suricata README [here](./README-SURICATA.md)
 
 Details
 ------------
-The main change is to add a Bypass Callback function to the AF-PACKET capture logic. AF-PACKET already has bypass options for simple and xDP bypass so the addition of the gRPC bypass via sessionOffload/openOffload is fairly straight forward. The bulk of the changes are in source-af-packet.c where the AFPOPOFBypassCallback is defined. Other changes are required to setup the option for using the gRPC offload , link in the open offload and grpc client libraries and general config options.
+The main change is to add a Bypass Callback function to the AF-PACKET capture logic. AF-PACKET already has bypass options for eBPF and XDP bypass modes so the addition of the gRPC bypass via sessionOffload/openOffload is fairly straight forward. The bulk of the changes are in source-af-packet.c where the AFPOPOFBypassCallback is defined. Other changes are required to setup the option for using the gRPC offload , link in the open offload and grpc client libraries and general config options.
 
-This is a demonstration so its not a fully functioning implementation and should not be directly used in production. See the TODO sections in source-af-packet.c for some of the things that would need to be modified.
+This is a demonstration so its not a fully functioning implementation and should not be directly used in production. See the TODO sections in source-af-packet.c for some of the things that would need to be added for a complete solution.
 
 It is however, a good way to understand how Suricata could interface with a sessionOffload enabled SmartNIC or NPU.   
+
+If useful and ameniable to the Suricata community, this could be upstreamed after completing and hardening the implementation.
 
 Installation
 ------------
