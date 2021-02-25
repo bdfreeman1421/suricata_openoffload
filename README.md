@@ -4,25 +4,31 @@ Session Offload Demonstration
 Introduction
 ------------
 
-Session Offload is an open source project that aims to use network processors to offload packet processing form x86 applications using an open and extensible API.
+Session Offload is an open source project that aims to use network processors to offload packet processing from x86 applications using an open and extensible API.
 A gRPC API has been defined and implemented in preliminary applications.
 The source repository is https://github.com/att/sessionOffload
 
 This fork of Suricata includes a demonstration of how to modify an application to use a SmartNIC or Router to offload tcp and udp processing.
 
-Suricata README [here](./README.md)
+Suricata README [here](./README-SURICATA.md)
 
 
 Details
 ------------
-The main change is to add a Bypass Callback function the af-packet capture logic. Af-packet already has bypass options for simple  and xDP bypass so the addition of the gRPC bypass via sessionOffload/openOffload is fairly straight forward. The bulk of the changes are in source-af-packet.c where the AFPOPOFBypassCallback is defined. Other changes are required to setup the option for using the gRPC offload , link in the open offload and grpc client libraries and general config options.
+The main change is to add a Bypass Callback function to the AF-PACKET capture logic. AF-PACKET already has bypass options for simple and xDP bypass so the addition of the gRPC bypass via sessionOffload/openOffload is fairly straight forward. The bulk of the changes are in source-af-packet.c where the AFPOPOFBypassCallback is defined. Other changes are required to setup the option for using the gRPC offload , link in the open offload and grpc client libraries and general config options.
 
-This is a demonstration so its not a fully functioning implementation and should not be directly used in production. See the TODO sections in source-af-packet.c for some of the things should weould need to be modified.
+This is a demonstration so its not a fully functioning implementation and should not be directly used in production. See the TODO sections in source-af-packet.c for some of the things that would need to be modified.
 
 It is however, a good way to understand how Suricata could interface with a sessionOffload enabled SmartNIC or NPU.   
 
 Installation
 ------------
+
+
+You will need to install the gRPC and sessionOffload client libraries.
+
+gRPC libraries can be the standard install and can be copied from the docker container form the sessionOffload/openoffload docker container.
+Build the openoffload/cpp/framework container as described in the session offlaod README and docker cp the relavent libraries to your environment.
 
 * /opt/grpc libraries
 
@@ -59,6 +65,8 @@ Installation
 -rw-r--r-- 1 root root   153474 Feb 19 19:25 libz.a
 ```
 
+OpenOffload client library can be copied from the sessionOffload docker container as well 
+
 * /opt/openoffload/libopof_clientlib.a
 
 * rules
@@ -74,11 +82,12 @@ alert udp any any -> any any (msg:"test udp bypass "; bypass; sid:2; rev:5;)
 
 Running a demonstration
 ------------
-1. start gRPC server (python version is easier use for a demonstration)
+1. start gRPC server (python version is easier use for a demonstration but us insecure channel since the SmartNIC version doesnt required ssl)
 
 2. start http (lighttpd) or udp server (iperf3) on the same machine as suricata
 
 3. start suricata - on virtual box two ubuntu VM's (suricate/traffic sink and a traffic source) can be used on an internal network
+In the example below we are using the second NIC (enps08) as the interace to listen on.
 ```
 ./src/suricata -c /etc/suricata/suricata.yaml -i enp0s8
 ```
