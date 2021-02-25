@@ -1,117 +1,95 @@
-Suricata
+Session Offload Demonstration
 ========
-
-[![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/suricata.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:suricata)
 
 Introduction
 ------------
 
-Suricata is a network IDS, IPS and NSM engine.
+Session Offload is an open source project that aims to use network processors to offload packet processing form x86 applications using an open and extensible API.
+A gRPC API has been defined and implemented in preliminary applications.
+The source repository is https://github.com/att/sessionOffload
 
+This fork of Suricata includes a demonstration of how to modify an application to use a SmartNIC or Router to offload tcp and udp processing.
+
+Suricata README [here](./README.md)
+
+
+Details
+------------
+The main change is to add a Bypass Callback function the af-packet capture logic. Af-packet already has bypass options for simple  and xDP bypass so the addition of the gRPC bypass via sessionOffload/openOffload is fairly straight forward. The bulk of the changes are in source-af-packet.c where the AFPOPOFBypassCallback is defined. Other changes are required to setup the option for using the gRPC offload , link in the open offload and grpc client libraries and general config options.
+
+This is a demonstration so its not a fully functioning implementation and should not be directly used in production. See the TODO sections in source-af-packet.c for some of the things should weould need to be modified.
+
+It is however, a good way to understand how Suricata could interface with a sessionOffload enabled SmartNIC or NPU.   
 
 Installation
 ------------
 
-https://redmine.openinfosecfoundation.org/projects/suricata/wiki/Suricata_Installation
+* /opt/grpc libraries
 
-User Guide
-----------
+```
+-rw-r--r-- 1 root root     6190 Feb 19 19:25 libabsl_bad_optional_access.a
+-rw-r--r-- 1 root root    72838 Feb 19 19:25 libabsl_base.a
+-rw-r--r-- 1 root root    32348 Feb 19 19:25 libabsl_civil_time.a
+-rw-r--r-- 1 root root     4876 Feb 19 19:25 libabsl_dynamic_annotations.a
+-rw-r--r-- 1 root root    53460 Feb 19 19:25 libabsl_int128.a
+-rw-r--r-- 1 root root     3512 Feb 19 19:25 libabsl_log_severity.a
+-rw-r--r-- 1 root root    19208 Feb 19 19:25 libabsl_raw_logging_internal.a
+-rw-r--r-- 1 root root     7482 Feb 19 19:25 libabsl_spinlock_wait.a
+-rw-r--r-- 1 root root   616310 Feb 19 19:25 libabsl_str_format_internal.a
+-rw-r--r-- 1 root root   529172 Feb 19 19:25 libabsl_strings.a
+-rw-r--r-- 1 root root    21212 Feb 19 19:25 libabsl_strings_internal.a
+-rw-r--r-- 1 root root    26688 Feb 19 19:25 libabsl_throw_delegate.a
+-rw-r--r-- 1 root root   442478 Feb 19 19:25 libabsl_time.a
+-rw-r--r-- 1 root root   909334 Feb 19 19:25 libabsl_time_zone.a
+-rw-r--r-- 1 root root    13336 Feb 19 19:25 libaddress_sorting.a
+-rw-r--r-- 1 root root   189814 Feb 19 19:25 libcares.a
+-rw-r--r-- 1 root root  3237846 Feb 19 19:25 libcrypto.a
+-rw-r--r-- 1 root root   225024 Feb 19 19:25 libgpr.a
+-rw-r--r-- 1 root root 34734284 Feb 19 19:25 libgrpc.a
+-rw-r--r-- 1 root root  6939956 Feb 19 19:25 libgrpc++.a
+-rw-r--r-- 1 root root   103642 Feb 19 19:25 libgrpc++_alts.a
+-rw-r--r-- 1 root root   179222 Feb 19 19:25 libgrpc++_error_details.a
+-rw-r--r-- 1 root root  2878764 Feb 19 19:25 libgrpc_plugin_support.a
+-rw-r--r-- 1 root root  4026254 Feb 19 19:25 libgrpcpp_channelz.a
+-rw-r--r-- 1 root root  2073298 Feb 19 19:25 libgrpc++_reflection.a
+-rw-r--r-- 1 root root 30235178 Feb 19 19:25 libgrpc_unsecure.a
+-rw-r--r-- 1 root root  5702332 Feb 19 19:25 libgrpc++_unsecure.a
+-rw-r--r-- 1 root root  4389526 Feb 19 19:25 libssl.a
+-rw-r--r-- 1 root root    66770 Feb 19 19:25 libupb.a
+-rw-r--r-- 1 root root   153474 Feb 19 19:25 libz.a
+```
 
-You can follow the [Suricata user guide](https://suricata.readthedocs.io/en/latest/) to get started.
+* /opt/openoffload/libopof_clientlib.a
 
-Our deprecated (but still useful) user guide is also [available](https://redmine.openinfosecfoundation.org/projects/suricata/wiki/Suricata_User_Guide).
+* rules
 
 
-Contributing
+Example Rules
 ------------
 
-We're happily taking patches and other contributions. Please see https://redmine.openinfosecfoundation.org/projects/suricata/wiki/Contributing for how to get started.
+```
+alert http any any -> any any (msg:"Test http bypass"; bypass ;  sid:1; rev:1;)
+alert udp any any -> any any (msg:"test udp bypass "; bypass; sid:2; rev:5;)
+```
 
-Suricata is a complex piece of software dealing with mostly untrusted input. Mishandling this input will have serious consequences:
+Running a demonstration
+------------
+1. start gRPC server (python version is easier use for a demonstration)
 
-* in IPS mode a crash may knock a network offline;
-* in passive mode a compromise of the IDS may lead to loss of critical and confidential data;
-* missed detection may lead to undetected compromise of the network.
+2. start http (lighttpd) or udp server (iperf3) on the same machine as suricata
 
-In other words, we think the stakes are pretty high, especially since in many common cases the IDS/IPS will be directly reachable by an attacker.
+3. start suricata - on virtual box two ubuntu VM's (suricate/traffic sink and a traffic source) can be used on an internal network
+```
+./src/suricata -c /etc/suricata/suricata.yaml -i enp0s8
+```
+4. tail suricata log in one window  (/var/log/suricat/suricata.log)
 
-For this reason, we have developed a QA process that is quite extensive. A consequence is that contributing to Suricata can be a somewhat lengthy process.
+5. send traffic in another window
+```
+curl http://10.0.1.4
+iperf3 -u -c 10.0.1.4
+```
+6. see log messages from gRPC server (addSessions messages from tcp and udp)
 
-On a high level, the steps are:
+7. see suricats log message for opeonoffload events 
 
-1. Travis-CI based build & unit testing. This runs automatically when a pull request is made.
-
-2. Review by devs from the team and community
-
-3. QA runs
-
-
-
-
-### Overview of Suricata's QA steps
-
-Trusted devs and core team members are able to submit builds to our (semi) public Buildbot instance. It will run a series of build tests and a regression suite to confirm no existing features break.
-
-The final QA run takes a few hours minimally, and is started by Victor. It currently runs:
-
-- extensive build tests on different OS', compilers, optimization levels, configure features
-- static code analysis using cppcheck, scan-build
-- runtime code analysis using valgrind, DrMemory, AddressSanitizer, LeakSanitizer
-- regression tests for past bugs
-- output validation of logging
-- unix socket testing
-- pcap based fuzz testing using ASAN and LSAN
-
-Next to these tests, based on the type of code change further tests can be run manually:
-
-- traffic replay testing (multi-gigabit)
-- large pcap collection processing (multi-terabytes)
-- fuzz testing (might take multiple days or even weeks)
-- pcap based performance testing
-- live performance testing
-- various other manual tests based on evaluation of the proposed changes
-
-
-It's important to realize that almost all of the tests above are used as acceptance tests. If something fails, it's up to you to address this in your code.
-
-
-One step of the QA is currently run post-merge. We submit builds to the Coverity Scan program. Due to limitations of this (free) service, we can submit once a day max.
-Of course it can happen that after the merge the community will find issues. For both cases we request you to help address the issues as they may come up.
-
-
-
-
-### FAQ
-
-__Q: Will you accept my PR?__
-
-A: That depends on a number of things, including the code quality. With new features it also depends on whether the team and/or the community think the feature is useful, how much it affects other code and features, the risk of performance regressions, etc.
-
-
-__Q: When will my PR be merged?__
-
-A: It depends, if it's a major feature or considered a high risk change, it will probably go into the next major version.
-
-
-__Q: Why was my PR closed?__
-
-A: As documented in the Suricata Github workflow here https://redmine.openinfosecfoundation.org/projects/suricata/wiki/Github_work_flow, we expect a new pull request for every change.
-
-Normally, the team (or community) will give feedback on a pull request after which it is expected to be replaced by an improved PR. So look at the comments. If you disagree with the comments we can still discuss them in the closed PR.
-
-If the PR was closed without comments it's likely due to QA failure. If the Travis-CI check failed, the PR should be fixed right away. No need for a discussion about it, unless you believe the QA failure is incorrect.
-
-
-__Q: the compiler/code analyser/tool is wrong, what now?__
-
-A: To assist in the automation of the QA, we're not accepting warnings or errors to stay. In some cases this could mean that we add a suppression if the tool supports that (e.g. valgrind, DrMemory). Some warnings can be disabled. In some exceptional cases the only 'solution' is to refactor the code to work around a static code checker limitation false positive. While frustrating, we prefer this over leaving warnings in the output. Warnings tend to get ignored and then increase risk of hiding other warnings.
-
-
-__Q: I think your QA test is wrong__
-
-A: If you really think it is, we can discuss how to improve it. But don't come to this conclusion too quickly, more often it's the code that turns out to be wrong.
-
-
-__Q: do you require signing of a contributor license agreement?__
-
-A: Yes, we do this to keep the ownership of Suricata in one hand: the Open Information Security Foundation. See http://suricata-ids.org/about/open-source/ and http://suricata-ids.org/about/contribution-agreement/
