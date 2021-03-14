@@ -156,6 +156,10 @@ static void *ParseAFPConfig(const char *iface)
 #ifdef HAVE_PACKET_EBPF
     aconf->ebpf_t_config.cpus_count = UtilCpuGetNumProcessorsConfigured();
 #endif
+#ifdef HAVE_OPENOFFLOAD
+    strlcpy(aconf->openoffload_host , "localhost", sizeof(aconf->openoffload_host));
+    aconf->openoffload_port = 3443;
+#endif
 
     if (ConfGet("bpf-filter", &bpf_filter) == 1) {
         if (strlen(bpf_filter) > 0) {
@@ -453,10 +457,21 @@ static void *ParseAFPConfig(const char *iface)
 
     }
 #ifdef HAVE_OPENOFFLOAD
-    if (ConfGetChildValueBoolWithDefault(if_root, if_default, "opeonoffload", &conf_val) != 1) {
-        aconf->flags |= AFP_OPOFBYPASS;
-	SCLogInfo("AFP_OPOFBYPASS set");
+    boolval = false;
+    (void) ConfGetChildValueBoolWithDefault(if_root, if_default, "openoffload", (int *)&boolval);
+    SCLogInfo("config-openoffload: %i", boolval);
+    if (boolval) {
+	    unsigned short usvalue=0;
+	    SCLogInfo("AFP_OPOFBYPASS set");
+            aconf->flags |= AFP_OPOFBYPASS ;
+            (void) ConfGetChildValueWithDefault(if_root, if_default, "openoffload-host", &tmpctype);
+            SCLogInfo("openoffload-host %s", tmpctype);
+            strlcpy(aconf->openoffload_host, tmpctype, sizeof(aconf->openoffload_host));
+            (void) ConfGetChildValueIntWithDefault(if_root, if_default, "openoffload-port", &usvalue);
+	    aconf->openoffload_port=usvalue;
+            SCLogInfo("openoffload-port %u", usvalue);
     }
+
 #endif
 
 

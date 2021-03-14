@@ -78,8 +78,9 @@ Example Rules
 ------------
 
 ```
-alert http any any -> any any (msg:"Test http bypass"; bypass ;  sid:1; rev:1;)
+alert http any any <> any any (msg:"Test http bypass"; bypass ;  sid:1; rev:1;)
 alert udp any any -> any any (msg:"test udp bypass "; bypass; sid:2; rev:5;)
+alert tcp any any <> any any (msg:"test tcp bypass "; bypass; sid:4; rev:5;)
 ```
 
 Running a demonstration

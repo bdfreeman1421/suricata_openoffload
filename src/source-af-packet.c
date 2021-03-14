@@ -235,6 +235,8 @@ typedef struct AFPThreadVars_
 #endif
 #ifdef HAVE_OPENOFFLOAD
     sessionTable_t *opof_handle;
+    const char *openoffload_host;
+    unsigned short openoffload_port;
 #endif
 
     unsigned int frame_offset;
@@ -939,6 +941,7 @@ static int AFPReadFromRing(AFPThreadVars *ptv)
         if (ptv->flags & AFP_OPOFBYPASS) {
             p->BypassPacketsFlow = AFPOPOFBypassCallback;
 	    p->afp_v.opof_handle=ptv->opof_handle;
+            SCLogInfo("AFP_OPOFBYPASS Callback Is SET");
         }
 
         /* Suricata will treat packet so telling it is busy, this
@@ -2688,7 +2691,8 @@ static int AFPXDPBypassCallback(Packet *p)
 static int AFPOPOFBypassCallback(Packet *p)
 {
 #ifdef HAVE_OPENOFFLOAD
-    SCLogDebug("Calling af_packet openoffload callback function");
+    SCLogInfo("Calling af_packet openoffload callback function");
+    //SCLogDebug("Calling af_packet openoffload callback function");
     sessionRequest_t **requests;
     sessionRequest_t *request;
     addSessionResponse_t addResp;
@@ -2725,7 +2729,7 @@ static int AFPOPOFBypassCallback(Packet *p)
 	uint   srcport;
 	uint   dstport;
 	struct in_addr nexthopip;
-	/* TODO: should be null be setting for demonstration */
+	/* TODO: should be null - setting for demonstration */
 	const char *nextHop = "192.168.0.1";
 	srcip.s_addr=p->src.addr_data32[0];
 	dstip.s_addr=p->dst.addr_data32[0];
@@ -2743,7 +2747,7 @@ static int AFPOPOFBypassCallback(Packet *p)
 	SCLogInfo("srcip: %s uint:%lu", inet_ntoa(srcip), srcip.s_addr);
 	SCLogInfo("dstip: %s uint:%lu", inet_ntoa(dstip), dstip.s_addr);
 	SCLogInfo("request ipver: %lu", ipver);
-	SCLogInfo("request ipver: %lu", proto);
+	SCLogInfo("request protcoldID: %lu", proto);
 
 	requests = (sessionRequest_t **)malloc(bufferSize * (sizeof(requests)));
 	for (unsigned long i = 0; i < bufferSize; i++){
@@ -2853,6 +2857,15 @@ TmEcode ReceiveAFPThreadInit(ThreadVars *tv, const void *initdata, void **data)
     ptv->ebpf_lb_fd = afpconfig->ebpf_lb_fd;
     ptv->ebpf_filter_fd = afpconfig->ebpf_filter_fd;
     ptv->xdp_mode = afpconfig->xdp_mode;
+#ifdef HAVE_OPENOFFLOAD
+   if (afpconfig->openoffload_host) {
+      ptv->openoffload_host=afpconfig->openoffload_host;
+   }
+   if (afpconfig->openoffload_port) {
+      ptv->openoffload_port=afpconfig->openoffload_port;
+   }
+
+#endif
 #ifdef HAVE_PACKET_EBPF
     ptv->ebpf_t_config.cpus_count = UtilCpuGetNumProcessorsConfigured();
 
@@ -2879,12 +2892,16 @@ TmEcode ReceiveAFPThreadInit(ThreadVars *tv, const void *initdata, void **data)
 
 #ifdef HAVE_OPENOFFLOAD
     if (ptv->flags & (AFP_OPOFBYPASS)) {
-           const char *address = "localhost";
-           unsigned short port = 3443;
+           const char *address = ptv->openoffload_host;
+           unsigned short port = ptv->openoffload_port;
            char cert[2048];
            SCLogInfo("Calling opof_create_sessionTable");
            ptv->opof_handle = opof_create_sessionTable(address, port, cert);
-    }
+           SCLogInfo("AFP_OPOFBYPASS Is SET");
+	   if (ptv->opof_handle == NULL) {
+               SCLogInfo("opof_handle is null !");
+	   }
+     }
 #endif
 
 #ifdef PACKET_STATISTICS

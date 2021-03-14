@@ -113,6 +113,10 @@ typedef struct AFPIfaceConfig_
 #ifdef HAVE_PACKET_EBPF
     struct ebpf_timeout_config ebpf_t_config;
 #endif
+#ifdef HAVE_OPENOFFLOAD
+    char openoffload_host[32];
+    unsigned short openoffload_port;
+#endif
     SC_ATOMIC_DECLARE(unsigned int, ref);
     void (*DerefFunc)(void *);
 } AFPIfaceConfig;
