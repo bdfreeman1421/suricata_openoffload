@@ -16,6 +16,12 @@ ldconfig
 lib64 update ?
 
 create libpcre.so.3  symlink
-ln -s /usr/lib64/libpcre.so.
+ln -s /usr/lib64/libpcre.so.   libpcre.so.3
 create libpcap.so.0.8 symlink
+ln -s /usr/lib64/libpcap.so.    libpcap.so.0.8
+
+
+/usr/lib64
+libpcre.so.3 -> libpcre.so.1.2.10
+libpcap.so.0.8 -> libpcap.so.1.9.1
 
