@@ -470,6 +470,12 @@ static void *ParseAFPConfig(const char *iface)
             (void) ConfGetChildValueIntWithDefault(if_root, if_default, "openoffload-port", &usvalue);
 	    aconf->openoffload_port=usvalue;
             SCLogInfo("openoffload-port %u", usvalue);
+            (void) ConfGetChildValueIntWithDefault(if_root, if_default, "openoffload-inlif", &usvalue);
+	    aconf->openoffload_inlif=usvalue;
+            SCLogInfo("openoffload-inlif: %u", usvalue);
+            (void) ConfGetChildValueIntWithDefault(if_root, if_default, "openoffload-outlif", &usvalue);
+	    aconf->openoffload_outlif=usvalue;
+            SCLogInfo("openoffload-outlif: %u", usvalue);
     }
 
 #endif

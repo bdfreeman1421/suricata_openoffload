@@ -1,7 +1,9 @@
-cd /home/bf1936/WB/
+cd /data/WB/
+
 tar --exclude='.git' -cvzf suricata-7.0.0-dev.tar.gz suricata-7.0.0-dev
 mv  suricata-7.0.0-dev.tar.gz suricata-7.0.0-dev/suricata-7.0.0-dev.tar.gz
 
+cd /data/WB/suricata-7.0.0-dev
 
 docker build -t suricata:v1beta1  .
 

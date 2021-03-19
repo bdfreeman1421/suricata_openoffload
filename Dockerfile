@@ -29,8 +29,8 @@ RUN  make install
 RUN mkdir -p /opt/grpc/local
 RUN ln -s /home/grpc/lib /opt/grpc/local
 
-RUN ln -s /usr/lib64/libpcre.so.1.2.10 libpcre.so.3
-RUN ln -s /usr/lib64/libpcap.so.1.9.1  libpcap.so.0.8
+RUN ln -s /usr/lib64/libpcre.so.1.2.10 /usr/lib64/libpcre.so.3
+RUN ln -s /usr/lib64/libpcap.so.1.9.1  /usr/lib64/libpcap.so.0.8
 
 COPY docker/lib/libc.conf  /etc/ld.so.conf.d/libc.conf
 RUN ldconfig

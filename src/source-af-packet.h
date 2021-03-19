@@ -116,6 +116,8 @@ typedef struct AFPIfaceConfig_
 #ifdef HAVE_OPENOFFLOAD
     char openoffload_host[32];
     unsigned short openoffload_port;
+    int  openoffload_inlif;
+    int  openoffload_outlif;
 #endif
     SC_ATOMIC_DECLARE(unsigned int, ref);
     void (*DerefFunc)(void *);
@@ -161,6 +163,8 @@ typedef struct AFPPacketVars_
 #endif
 #ifdef HAVE_OPENOFFLOAD
     sessionTable_t *opof_handle;
+    int  openoffload_inlif;
+    int  openoffload_outlif;
 #endif
 
 } AFPPacketVars;

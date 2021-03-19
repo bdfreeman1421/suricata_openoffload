@@ -237,6 +237,9 @@ typedef struct AFPThreadVars_
     sessionTable_t *opof_handle;
     const char *openoffload_host;
     unsigned short openoffload_port;
+    uint32_t openoffload_inlif;
+    uint32_t openoffload_outlif;
+
 #endif
 
     unsigned int frame_offset;
@@ -653,6 +656,8 @@ static int AFPRead(AFPThreadVars *ptv)
     if (ptv->flags & AFP_OPOFBYPASS) {
         p->BypassPacketsFlow = AFPOPOFBypassCallback;
         p->afp_v.opof_handle= ptv->opof_handle;
+        p->afp_v.openoffload_inlif= ptv->openoffload_inlif;
+        p->afp_v.openoffload_outlif= ptv->openoffload_outlif;
     }
 
     /* get timestamp of packet via ioctl */
@@ -941,7 +946,9 @@ static int AFPReadFromRing(AFPThreadVars *ptv)
         if (ptv->flags & AFP_OPOFBYPASS) {
             p->BypassPacketsFlow = AFPOPOFBypassCallback;
 	    p->afp_v.opof_handle=ptv->opof_handle;
-            SCLogInfo("AFP_OPOFBYPASS Callback Is SET");
+            p->afp_v.openoffload_inlif= ptv->openoffload_inlif;
+            p->afp_v.openoffload_outlif= ptv->openoffload_outlif;
+            //SCLogInfo("AFP_OPOFBYPASS Callback Is SET");
         }
 
         /* Suricata will treat packet so telling it is busy, this
@@ -2724,6 +2731,7 @@ static int AFPOPOFBypassCallback(Packet *p)
 	proto = _TCP;
 	ipver = _IPV4;
 	action = _FORWARD;
+	unsigned int timeout = 30u;
 	struct in_addr srcip;
 	struct in_addr dstip;
 	uint   srcport;
@@ -2731,8 +2739,10 @@ static int AFPOPOFBypassCallback(Packet *p)
 	struct in_addr nexthopip;
 	/* TODO: should be null - setting for demonstration */
 	const char *nextHop = "192.168.0.1";
-	srcip.s_addr=p->src.addr_data32[0];
-	dstip.s_addr=p->dst.addr_data32[0];
+	//srcip.s_addr=p->src.addr_data32[0];
+	srcip.s_addr= htonl(GET_IPV4_SRC_ADDR_U32(p));
+	//dstip.s_addr=p->dst.addr_data32[0];
+	dstip.s_addr= htonl(GET_IPV4_DST_ADDR_U32(p));
 	if (PKT_IS_TCP(p) ){
 	     srcport=GET_TCP_SRC_PORT(p);
              dstport=GET_TCP_DST_PORT(p);
@@ -2753,8 +2763,10 @@ static int AFPOPOFBypassCallback(Packet *p)
 	for (unsigned long i = 0; i < bufferSize; i++){
 		    request = (sessionRequest_t *)malloc(sizeof(*request));
 		    request->sessId = (2+sessionId);
-		    request->inlif = 3;
-		    request->outlif = 4;
+		    //request->inlif = 3;
+		    //request->outlif = 4;
+		    request->inlif = p->afp_v.openoffload_inlif;
+		    request->outlif = p->afp_v.openoffload_outlif;
 		    //request->srcPort = 80;
 		    //request->dstPort = 45678;
 		    request->srcPort = srcport;
@@ -2765,10 +2777,12 @@ static int AFPOPOFBypassCallback(Packet *p)
 		    request->actType = action;
 		    request->srcIP = srcip;
 		    request->dstIP = dstip;
+		    request->cacheTimeout = timeout;
 		    requests[i] = request;
 		    SCLogInfo("request session ID[%d]: %lu", i,request->sessId);
 		    SCLogInfo("request ipver in loop[%lu]: %lu", i, request->ipver);
 		    SCLogInfo("request srcIP in loop[%lu]: %lu", i, request->srcIP.s_addr);
+		    SCLogInfo("request timeout in loop[%lu]: %lu", i, request->cacheTimeout);
          }
 
          SCLogInfo("requests[0].ipver %lu" , requests[0]->ipver);
@@ -2777,7 +2791,13 @@ static int AFPOPOFBypassCallback(Packet *p)
              SCLogInfo("ERROR: Adding sessions");
              return FAILURE;
          }
-         SCLogInfo("response : %lu", addResp.errorStatus);
+	 if (addResp.number_errors > 0){
+             SCLogInfo("\n\nErrors in the following sessions\n");
+             for (int i=0; i < addResp.number_errors; i++){
+                 SCLogInfo("\tSessionId: %lu\t error: %lu\n", addResp.sessionErrors[i].sessionId, addResp.sessionErrors[i].errorStatus);
+             }
+         }
+         SCLogInfo("addSession number_errors: %lu", addResp.number_errors);
 
          return 0;
     } /* end of PKT_IS_IPV4 */
@@ -2864,6 +2884,12 @@ TmEcode ReceiveAFPThreadInit(ThreadVars *tv, const void *initdata, void **data)
    if (afpconfig->openoffload_port) {
       ptv->openoffload_port=afpconfig->openoffload_port;
    }
+   if (afpconfig->openoffload_inlif) {
+      ptv->openoffload_inlif=afpconfig->openoffload_inlif;
+   }
+   if (afpconfig->openoffload_outlif) {
+      ptv->openoffload_outlif=afpconfig->openoffload_outlif;
+   }
 
 #endif
 #ifdef HAVE_PACKET_EBPF
@@ -2897,7 +2923,7 @@ TmEcode ReceiveAFPThreadInit(ThreadVars *tv, const void *initdata, void **data)
            char cert[2048];
            SCLogInfo("Calling opof_create_sessionTable");
            ptv->opof_handle = opof_create_sessionTable(address, port, cert);
-           SCLogInfo("AFP_OPOFBYPASS Is SET");
+           //SCLogInfo("AFP_OPOFBYPASS Is SET");
 	   if (ptv->opof_handle == NULL) {
                SCLogInfo("opof_handle is null !");
 	   }
