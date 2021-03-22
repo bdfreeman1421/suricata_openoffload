@@ -27,6 +27,10 @@ Installation
 ------------
 
 
+There is a Dockerfile that can be used to build a docker containerized form or Suricata with OpenOffload using the openoffload framework container as the base layer. See docker/README.md for simplified instructions on that build.
+
+For the local testing without the docker container use the following:
+
 You will need to install the gRPC and sessionOffload client libraries.
 
 gRPC libraries can be the standard install and can be copied from the docker container form the sessionOffload/openoffload docker container.
@@ -92,11 +96,13 @@ Running a demonstration
 3. start suricata - on virtual box two ubuntu VM's (suricate/traffic sink and a traffic source) can be used on an internal network
 In the example below we are using the second NIC (enps08) as the interace to listen on.
 ```
-./src/suricata -c /etc/suricata/suricata.yaml -i enp0s8
+./src/suricata -c /etc/suricata/suricata.yaml -i enp0s8  (if you are just testing the API calls to a separate gRPC sessionOffload server) 
+or
+./src/suricata -c /etc/suricata/suricata.yaml --af-packet (if you are testing with a real SmartNIC and want to see packet copying between interfaces)
 ```
 4. tail suricata log in one window  (/var/log/suricat/suricata.log)
 
-5. send traffic in another window
+5. send traffic in another window  (assuming http and iperf3 running on 10.0.1.4)
 ```
 curl http://10.0.1.4
 iperf3 -u -c 10.0.1.4
